@@ -20,9 +20,9 @@ func main() {
     fp.Write(key.Precomputed.Dq.Bytes())
     fp.Close()
 
-    fp, err = os.Create("D")
-    if err != nil { panic("Failed to open D") }
-    fp.Write(key.Precomputed.Dp.Bytes())
+    fp, err = os.Create("N")
+    if err != nil { panic("Failed to open N") }
+    fp.Write(key.PublicKey.N.Bytes())
     fp.Close()
 }
 
