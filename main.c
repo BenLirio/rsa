@@ -1,103 +1,79 @@
-#include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <stdio.h>
 #include <stdbool.h>
 
-typedef unsigned long int uint64;
+typedef unsigned char byte;
+typedef unsigned short dByte;
+typedef byte* bigInt;
 
-typedef struct uint64MulRes {
-    uint64 lo;
-    uint64 hi;
-} uint64MulRes;
-
-typedef struct uint64AddRes {
-    uint64 val;
-    bool carry;
-} uint64AddRes;
-
-typedef char *bigInt;
-
-void printBits(uint64 val) {
-    for (int i = 63; i >= 0; i--) {
-        if (val&((uint64)1<<i)) {
-            printf("1");
-        } else {
-            printf("0");
+void mul(bigInt C, bigInt A, bigInt B, int nbytes) {
+    byte M[nbytes][nbytes][2];
+    for (int i = 0; i < nbytes; i++) {
+        for (int j = 0; j < nbytes; j++) {
+            for (int k = 0; k < 2; k++) {
+                M[i][j][k] = 0;
+            }
         }
     }
-}
-
-uint64MulRes mul(uint64 x, uint64 y) {
-    uint64 mask32 = ((uint64)1<<32)-1;
-    uint64 hi = (x>>32)*(y>>32);
-    hi += ((x>>32)*(y&mask32))>>32;
-    hi += ((y>>32)*(x&mask32))>>32;
-    uint64MulRes z;
-    z.lo = x*y;
-    z.hi = hi;
-    return z;
-}
-
-bool hasCarry(uint64 x, uint64 y, bool c) {
-    return ((x&y)|((x|y)&((uint64)c<<63)))>>63;
-}
-
-uint64AddRes add(uint64 x, uint64 y, bool c) {
-    uint64AddRes z;
-    z.val = x+y+c;
-    z.carry = hasCarry(x, y, c);
-    return z;
-}
-
-
-bigInt bigMul(bigInt A, bigInt B) {
-    uint64 A0 = 0;
-    uint64 B0 = 0;
-    uint64 A1 = 0;
-    uint64 B1 = 0;
-    for (int i = 0; i < 8; i++) {
-        A0 |= (uint64)A[i]<<(i*8);
-        B0 |= (uint64)B[i]<<(i*8);
-        A1 |= (uint64)A[i+8]<<(i*8);
-        B1 |= (uint64)B[i+8]<<(i*8);
+    for (int i = 0; i < nbytes; i++) {
+        for (int j = 0; j < nbytes; j++) {
+            M[i][j][0] = A[i]*B[j];
+            M[i][j][1] = ((byte)A[i]*B[j])>>(sizeof(byte)<<3);
+        }
     }
-    uint64MulRes C00 = mul(A0, B0);
-    uint64MulRes C01 = mul(A0, B1);
-    uint64MulRes C10 = mul(A1, B0);
-    uint64MulRes C11 = mul(A1, B1);
-    bigInt C = malloc(32);
+    byte carry[nbytes<<1];
+    for (int i = 0; i < nbytes<<1; i++) {
+        carry[i] = 0;
+    }
+    for (int i = 0; i < nbytes; i++) {
+        for (int j = 0; j < nbytes; j++) {
+            for (int k = 0; k < 2; k++) {
+                carry[i+j+k+1] += ((unsigned short)C[i+j+k] + M[i][j][k])>>8;
+                C[i+j+k] += M[i][j][k];
+            }
+        }
+    }
+    for (int i = 0; i < nbytes<<1; i++) {
+        if (i+1 < nbytes<<1) {
+            carry[i+1] += ((unsigned short)C[i] + carry[i])>>4;
+        }
+        C[i] += carry[i];
+    }
+}
 
-    uint64AddRes t;
-    t.val = 0;
-    t.carry = false;
-    uint64 w0 = 0;
-    uint64 w1 = 0;
-    uint64 w2 = 0;
-    uint64 w3 = 0;
-    uint64 carry = 0;
-    w0 = C00.lo;
-    t = add(C00.hi, C01.lo, 0);
-    carry += t.carry;
-    t = add(t.val, C10.lo, 0);
-    carry += t.carry;
-    w1 = t.val;
+void show(bigInt A, int nbytes) {
+    for (int i = nbytes-1; i >= 0; i--) {
+        printf("%x", A[i]);
+    }
+    printf("\n");
 
-    t = add(C01.hi, carry, 0);
-    carry = t.carry;
-    t = add(t.val, C10.hi, 0);
-    carry += t.carry;
-    t = add(t.val, C11.lo, 0);
-    carry += t.carry;
-    w2 = t.val;
-    w3 = add(C11.hi, carry, 0).val;
-    
-    return C;
 }
 
 int main() {
-    bigInt A = malloc(16);
-    bigInt B = malloc(16);
-    bigInt C = bigMul(A, B);
-    free(A);
-    free(B);
-    free(C);
+    bigInt A = malloc(128);
+    bigInt B = malloc(128);
+    bigInt C = malloc(256);
+
+    int fp;
+
+    fp = open("testdata/Dp", O_RDONLY);
+    read(fp, A, 128);
+    fp = open("testdata/Dq", O_RDONLY);
+    read(fp, B, 128);
+
+    mul(C, A, B, 128);
+    show(A, 128);
+    printf("\n");
+    show(B, 128);
+    printf("\n");
+    show(C, 256);
+    printf("\n");
+
+    bigInt E = malloc(256);
+    fp = open("testdata/N", O_RDONLY);
+    read(fp, E, 256);
+    show(E, 256);
+    printf("\n");
 }
