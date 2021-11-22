@@ -1,79 +1,54 @@
-#include <stdlib.h>
-#include <unistd.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <stdio.h>
-#include <stdbool.h>
+#include <stdlib.h>
 
 typedef unsigned char byte;
-typedef unsigned short dByte;
-typedef byte* bigInt;
+typedef byte* bytes;
 
-void mul(bigInt C, bigInt A, bigInt B, int nbytes) {
-    byte M[nbytes][nbytes][2];
-    for (int i = 0; i < nbytes; i++) {
-        for (int j = 0; j < nbytes; j++) {
-            for (int k = 0; k < 2; k++) {
-                M[i][j][k] = 0;
-            }
-        }
-    }
-    for (int i = 0; i < nbytes; i++) {
-        for (int j = 0; j < nbytes; j++) {
-            M[i][j][0] = A[i]*B[j];
-            M[i][j][1] = ((byte)A[i]*B[j])>>(sizeof(byte)<<3);
-        }
-    }
-    byte carry[nbytes<<1];
-    for (int i = 0; i < nbytes<<1; i++) {
-        carry[i] = 0;
-    }
-    for (int i = 0; i < nbytes; i++) {
-        for (int j = 0; j < nbytes; j++) {
-            for (int k = 0; k < 2; k++) {
-                carry[i+j+k+1] += ((unsigned short)C[i+j+k] + M[i][j][k])>>8;
-                C[i+j+k] += M[i][j][k];
-            }
-        }
-    }
-    for (int i = 0; i < nbytes<<1; i++) {
-        if (i+1 < nbytes<<1) {
-            carry[i+1] += ((unsigned short)C[i] + carry[i])>>4;
-        }
-        C[i] += carry[i];
-    }
-}
-
-void show(bigInt A, int nbytes) {
-    for (int i = nbytes-1; i >= 0; i--) {
-        printf("%x", A[i]);
+void show(bytes bs, int n) {
+    for (int i = 0; i < n; i++) {
+        printf("%x", bs[i]);
     }
     printf("\n");
+}
 
+void panic(char* msg) {
+    printf("%s\n", msg);
+    exit(1);
+}
+
+void test(bytes* nums, int* nums_size) {
+    printf("TEST\n");
+    printf("A: ");
+    show(nums[0], nums_size[0]);
+    printf("B: ");
+    show(nums[1], nums_size[1]);
+    printf("C: ");
+    show(nums[2], nums_size[2]);
+    printf("\n\n");
+    return;
 }
 
 int main() {
-    bigInt A = malloc(128);
-    bigInt B = malloc(128);
-    bigInt C = malloc(256);
-
-    int fp;
-
-    fp = open("testdata/Dp", O_RDONLY);
-    read(fp, A, 128);
-    fp = open("testdata/Dq", O_RDONLY);
-    read(fp, B, 128);
-
-    mul(C, A, B, 128);
-    show(A, 128);
-    printf("\n");
-    show(B, 128);
-    printf("\n");
-    show(C, 256);
-    printf("\n");
-
-    bigInt E = malloc(256);
-    fp = open("testdata/N", O_RDONLY);
-    read(fp, E, 256);
-    show(E, 256);
-    printf("\n");
+    int fp = open("testdata/small/numbers", O_RDONLY);
+    int n;
+    for (;;) {
+        bytes nums[3];
+        int nums_size[3];
+        for (int i = 0; i < 3; i++) {
+            if (read(fp, &n, sizeof(n)) == sizeof(n)) {
+                nums[i] = malloc(n);
+                if ((read(fp, nums[i], n) != n)) {
+                    panic("Could not read Num");
+                }
+                nums_size[i] = n;
+            } else {
+                goto DONE;
+            }
+        }
+        test(nums, nums_size);
+    }
+DONE:
+    return 0;
 }
