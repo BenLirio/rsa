@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <assert.h>
 #include <unistd.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -35,25 +36,18 @@ bool has_carry(uint64 A, uint64 B) {
 
 
 void mul(bigInt* dst, bigInt A, bigInt B) {
-    dst->len = A.len+B.len;
-    dst->data = calloc(8, dst->len);
-    for (int i = 0; i < dst->len; i++) {
-        dst->data[i] = 0;
-    }
+    // Create matrix
     uint64 M[A.len][B.len][2];
-    for (int i = 0; i < A.len; i++) {
-        for (int j = 0; j < B.len; j++) {
-            for (int k = 0; k < 2; k++) {
-                M[i][j][k] = 0;
-            }
-        }
-    }
     for (int i = 0; i < A.len; i++) {
         for (int j = 0; j < B.len; j++) {
             M[i][j][0] = mul_lo(A.data[i], B.data[j]);
             M[i][j][1] = mul_hi(A.data[i], B.data[j]);
         }
     }
+
+    // Sum Matrix
+    dst->len = A.len+B.len;
+    dst->data = calloc(8, dst->len);
     uint64* carry = calloc(8, dst->len);
     for (int i = 0; i < A.len; i++) {
         for (int j = 0; j < B.len; j++) {
@@ -63,14 +57,21 @@ void mul(bigInt* dst, bigInt A, bigInt B) {
             }
         }
     }
+
+    // Carry
     for (int i = 0; i < dst->len; i++) {
         carry[i+1] += has_carry(dst->data[i], carry[i]);
         dst->data[i] += carry[i];
     }
-    if (dst->data[dst->len-1] == 0) {
-        dst->len -= 1; 
-        dst->data = realloc(dst->data, (dst->len)<<3);
+
+    // Trim zeros
+    for (int i = dst->len-1; i >= 0; i--) {
+        if (dst->data[i] != 0) {
+            break;
+        }
+        dst->len -= 1;
     }
+    dst->data = realloc(dst->data, (dst->len)<<3);
 }
 
 void show(uint64* num, int n) {
@@ -80,14 +81,27 @@ void show(uint64* num, int n) {
     printf("\n");
 }
 
+bool VERBOSE = false;
+
 void test(bigInt nums[]) {
-    bigInt* D = malloc(sizeof(bigInt));
-    mul(D, nums[0], nums[1]);
-    for (int i = 0; i < 3; i++) {
-        show(nums[i].data, nums[i].len);
+    bigInt A = nums[0];
+    bigInt B = nums[1];
+    bigInt dst_expected = nums[2];
+    bigInt dst;
+    mul(&dst, nums[0], nums[1]);
+    if (VERBOSE) {
+        for (int i = 0; i < 3; i++) {
+            show(nums[i].data, nums[i].len);
+        }
+        show(dst.data, dst.len);
+        printf("\n");
+    } else {
+        printf("OK\n");
     }
-    show(D->data, D->len);
-    printf("\n");
+    assert(dst.len == dst_expected.len);
+    for (int i = 0; i < dst.len; i++) {
+        assert(dst.data[i] == dst_expected.data[i]);
+    }
     
     return;
 }
