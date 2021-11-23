@@ -18,14 +18,17 @@ dword low64_mul(dword A, dword B) {
 dword hi64_mul(dword A, dword B) {
     dword mask32 = ((dword)1<<32)-1;
     dword out = 0;
-    out += (A>>32)*(B>>32);
-    out += ((A>>32)*(B&mask32))>>32;
-    out += ((B>>32)*(A&mask32))>>32;
-    return out;
+    dword p0 = (A&mask32)*(B&mask32);
+    dword p1 = (A>>32)*(B&mask32);
+    dword p2 = (A&mask32)*(B&mask32);
+    dword p3 = (A>>32)*(B>>32);
+    dword cy = ((p0>>32) + (p1&mask32) + (p2&mask32))>>32;
+    return p3+(p1>>32)+(p2>>32) + cy;
 }
 
 bool has_carry(dword A, dword B) {
-    return ((A&B)|((A|B)&(~(A+B))))>>63 == 1;
+    bool rtn = ((A&B)|((A|B)&(~(A+B))))>>63 == 1;
+    return rtn;
 }
 
 void mul(dword* dst, dword* A, dword* B, int* dst_size, int size_A, int size_B) {
@@ -39,10 +42,8 @@ void mul(dword* dst, dword* A, dword* B, int* dst_size, int size_A, int size_B) 
     }
     for (int i = 0; i < size_A; i++) {
         for (int j = 0; j < size_B; j++) {
-            for (int k = 0; k < 2; k++) {
-                M[i][j][0] = low64_mul(A[i], B[j]);
-                M[i][j][1] = hi64_mul(A[i], B[j]);
-            }
+            M[i][j][0] = low64_mul(A[i], B[j]);
+            M[i][j][1] = hi64_mul(A[i], B[j]);
         }
     }
     for (int i = 0; i < size_A+size_B; i++) {
@@ -59,12 +60,14 @@ void mul(dword* dst, dword* A, dword* B, int* dst_size, int size_A, int size_B) 
             }
         }
     }
+    /*
     for (int i = 0; i < size_A+size_B; i++) {
         if (has_carry(dst[i], carry[i])) {
             carry[i+1] += 1;
         }
         dst[i] += carry[i];
     }
+    */
 
     *dst_size = size_A+size_B;
     if (dst[size_A+size_B-1] == 0) {
