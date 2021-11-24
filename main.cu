@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+bool VERBOSE = false;
+bool MAP_HOST = true;
+
 typedef unsigned long int uint64;
 
 typedef struct bigInt {
@@ -53,28 +56,23 @@ __global__ void kernal_create_table(uint64* M, uint64* A_data, uint64* B_data, i
     uint64 hi = x1*y1 + w2 + (w1>>32);
     uint64 lo = x*y;
     *(M+(i*B_len*2)+(j*2)+(1)) = hi;
-    *(M+i*B_len*2+j*2) = lo;
+    *(M+(i*B_len*2)+(j*2)) = lo;
 }
-
 
 void mul(bigInt* pDst, bigInt A, bigInt B) {
     bigInt dst = *pDst;
     // Create matrix
-    uint64 M[A.len][B.len][2];
+    uint64* M;
+    cudaHostAlloc(&M, A.len*B.len*2*sizeof(uint64), cudaHostAllocMapped);
     uint64 *dev_M;
-    size_t bytes = A.len*B.len*2*sizeof(uint64);
-    cudaMalloc(&dev_M, bytes);
-    cudaMemcpy(dev_M, M, bytes, cudaMemcpyHostToDevice);
+    cudaHostGetDevicePointer(&dev_M, M, 0);
+    *dev_M = 1;
     uint64 *dev_A_data;
-    cudaMalloc(&dev_A_data, A.len*sizeof(uint64));
-    cudaMemcpy(dev_A_data, A.data, A.len*sizeof(uint64), cudaMemcpyHostToDevice);
+    cudaHostGetDevicePointer(&dev_A_data, A.data, 0);
     uint64 *dev_B_data;
-    cudaMalloc(&dev_B_data, B.len*sizeof(uint64));
-    cudaMemcpy(dev_B_data, B.data, B.len*sizeof(uint64), cudaMemcpyHostToDevice);
+    cudaHostGetDevicePointer(&dev_B_data, B.data, 0);
     kernal_create_table<<<1,A.len*B.len>>>(dev_M, dev_A_data, dev_B_data, A.len, B.len);
-
-    cudaMemcpy(M, dev_M, bytes, cudaMemcpyDeviceToHost);
-
+    cudaDeviceSynchronize();
 
     // Sum Matrix
     dst.len = A.len+B.len;
@@ -83,8 +81,8 @@ void mul(bigInt* pDst, bigInt A, bigInt B) {
     for (int i = 0; i < A.len; i++) {
         for (int j = 0; j < B.len; j++) {
             for (int k = 0; k < 2; k++) {
-                carry[i+j+k+1] += has_carry(dst.data[i+j+k], M[i][j][k]);
-                dst.data[i+j+k] += M[i][j][k];
+                carry[i+j+k+1] += has_carry(dst.data[i+j+k], *(M+i*(B.len*2)+(j*2)+k));
+                dst.data[i+j+k] += *(M+(i*B.len*2)+(j*2)+k);
             }
         }
     }
@@ -114,7 +112,6 @@ void show(uint64* num, int n) {
     printf("\n");
 }
 
-bool VERBOSE = false;
 
 void test(bigInt nums[]) {
     bigInt A = nums[0];
@@ -140,13 +137,21 @@ void test(bigInt nums[]) {
 }
 
 int main() {
+    if (MAP_HOST) {
+        cudaDeviceProp prop;
+        cudaGetDeviceProperties(&prop, 0);
+        if (!prop.canMapHostMemory) {
+            printf("Can not map host memory\n");
+        }
+        cudaSetDeviceFlags(cudaDeviceMapHost);
+    }
     int fp = open("testdata/small/numbers", O_RDONLY);
     int n;
     for (;;) {
         bigInt nums[3];
         for (int i = 0; i < 3; i++) {
             if (read(fp, &n, sizeof(n)) == sizeof(n)) {
-                nums[i].data = (uint64*)calloc(8, (n+7)/8);
+                cudaHostAlloc(&(nums[i].data), ((n+7)/8)*sizeof(uint64), cudaHostAllocMapped);
                 if ((read(fp, nums[i].data, n) != n)) {
                     assert(false);
                 }
