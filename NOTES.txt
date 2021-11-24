@@ -1,0 +1,8 @@
+The asm on cpu is effective.
+
+The first iteration takes about 10 times longer than the rest.
+I am guessing this is a compulsory cache miss.
+
+All of the functions are in the same ball park.
+Also, I should read the integers on demand, not all at once.
+Reading all at once is giving me segfaults.

@@ -2,8 +2,11 @@ package main
 
 import (
     "math/big"
+    "math/rand"
     "os"
+    "strings"
     "encoding/binary"
+    "fmt"
 )
 
 type TestCase struct {
@@ -41,19 +44,40 @@ func (tc TestCase) Marshal() ([]byte) {
 
 }
 
+var MAX_BITS int = 1<<15
+var N_BITS int = 1<<13;
+
 func GenTestCase() TestCase {
-    tc := TestCase{
-        A: new(big.Int).SetUint64(uint64(1<<32)),
-        B: new(big.Int).SetUint64(uint64(1<<63)),
+    var AStrBuilder strings.Builder
+    var BStrBuilder strings.Builder
+    base := 16
+    //ALen := rand.Intn(MAX_BITS/4)
+    //BLen := rand.Intn(MAX_BITS/4)
+    ALen := N_BITS
+    BLen := N_BITS
+    for i := 0; i < ALen; i++ {
+        fmt.Fprintf(&AStrBuilder, "%x", rand.Intn(base))
     }
-    return tc
+    for i := 0; i < BLen; i++ {
+        fmt.Fprintf(&BStrBuilder, "%x", rand.Intn(base))
+    }
+
+    A, ok := new(big.Int).SetString(AStrBuilder.String(), base)
+    if !ok { panic("Failed to convert string") }
+    B, ok := new(big.Int).SetString(BStrBuilder.String(), base)
+    if !ok { panic("Failed to convert string") }
+    return TestCase{A, B}
 }
 
+var NUM_TESTS int = 32
 
 func main() {
     fp, err := os.Create("testcases")
     if err != nil { panic(err) }
-    tc := GenTestCase()
-    fp.Write(tc.Marshal())
+
+    for i := 0; i < NUM_TESTS; i++ {
+        tc := GenTestCase()
+        fp.Write(tc.Marshal())
+    }
     fp.Close()
 }
