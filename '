@@ -88,9 +88,9 @@ void mul(bigInt* pDst, bigInt* pA, bigInt* pB) {
     ///cudaHostAlloc(&(dst.data), dst.len<<3, cudaHostAllocMapped);
     uint64* carry = (uint64*)calloc(8, dst.len);
 
-    //bigInt* dev_pDst;
-    //cudaHostGetDevicePointer(&dev_pDst, pDst, 0);
-    //cudaHostGetDevicePointer(&(*dev_pDst).dev_data, dst.data, 0);
+    bigInt* dev_pDst;
+    cudaHostGetDevicePointer(&dev_pDst, pDst, 0);
+    cudaHostGetDevicePointer(&(*dev_pDst).dev_data, dst.data, 0);
     for (int i = 0; i < A.len; i++) {
         for (int j = 0; j < B.len; j++) {
             for (int k = 0; k < 2; k++) {
