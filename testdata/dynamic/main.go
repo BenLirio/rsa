@@ -2,57 +2,58 @@ package main
 
 import (
     "math/big"
-    "encoding/binary"
     "os"
+    "encoding/binary"
 )
 
-type BigIntStr [2]string
 type TestCase struct {
-    ALen uint32
-    Adata []byte
+    A *big.Int
+    B *big.Int
 }
 
-var Cases []BigIntStr = []BigIntStr{
-    BigIntStr{"ffffffff", "ffffffff"},
-    BigIntStr{"ffffffffffffffff", "ffffffffffffffff"},
-    BigIntStr{"ffffffffffffffff", "1"},
-    BigIntStr{"1", "244"},
-}
-
-func rev(b []byte) []byte {
-    for i := 0; i < len(b)/2; i++ {
-        b[i], b[len(b)-i-1] = b[len(b)-i-1], b[i]
+func rev(bs []byte) []byte {
+    for i := 0; i < len(bs)/2; i++ {
+        bs[i], bs[len(bs)-i-1] = bs[len(bs)-i-1], bs[i]
     }
-    return b
+    return bs
 }
 
-func WriteTestCase(fp *os.File, a, b *big.Int) {
-        err := binary.Write(fp, binary.LittleEndian, uint32(len(a.Bytes())))
-        if err != nil { panic(err) }
-        fp.Write(rev(a.Bytes()))
+func (tc TestCase) Marshal() ([]byte) {
+    out := []byte{}
 
+    bs := make([]byte, 4)
+    binary.LittleEndian.PutUint32(bs, uint32(len(tc.A.Bytes())))
+    out = append(out, bs...)
+    out = append(out, rev(tc.A.Bytes())...)
 
-        err = binary.Write(fp, binary.LittleEndian, uint32(len(b.Bytes())))
-        if err != nil { panic(err) }
-        fp.Write(rev(b.Bytes()))
+    bs = make([]byte, 4)
+    binary.LittleEndian.PutUint32(bs, uint32(len(tc.B.Bytes())))
+    out = append(out, bs...)
+    out = append(out, rev(tc.B.Bytes())...)
 
-        c := new(big.Int).Mul(a, b)
-        err = binary.Write(fp, binary.LittleEndian, uint32(len(c.Bytes())))
-        if err != nil { panic(err) }
-        fp.Write(rev(c.Bytes()))
+    C := new(big.Int).Mul(tc.A, tc.B)
+    bs = make([]byte, 4)
+    binary.LittleEndian.PutUint32(bs, uint32(len(C.Bytes())))
+    out = append(out, bs...)
+    out = append(out, rev(C.Bytes())...)
 
+    return out
+
+}
+
+func GenTestCase() TestCase {
+    tc := TestCase{
+        A: new(big.Int).SetUint64(uint64(1<<32)),
+        B: new(big.Int).SetUint64(uint64(1<<63)),
+    }
+    return tc
 }
 
 
 func main() {
-    fp, err := os.Create("numbers")
+    fp, err := os.Create("testcases")
     if err != nil { panic(err) }
-    for i := 0; i < len(Cases); i++ {
-        a, ok := new(big.Int).SetString(Cases[i][0], 16)
-        if ok != true { panic("SetString Failed") }
-        b, ok := new(big.Int).SetString(Cases[i][1], 16)
-        if ok != true { panic("SetString Failed") }
-        WriteTestCase(fp, a, b)
-    }
+    tc := GenTestCase()
+    fp.Write(tc.Marshal())
     fp.Close()
 }

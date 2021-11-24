@@ -140,7 +140,7 @@ void test(bigInt nums[]) {
 }
 
 int main() {
-    int fp = open("../testdata/small/numbers", O_RDONLY);
+    int fp = open("../testdata/dynamic/numbers", O_RDONLY);
     int n;
     for (;;) {
         bigInt nums[3];
