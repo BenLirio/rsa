@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <time.h>
 #include <assert.h>
 #include <unistd.h>
 #include <cuda_runtime.h>
@@ -41,8 +42,8 @@ bool has_carry(uint64 A, uint64 B) {
 __global__ void kernal_create_table(uint64* M, bigInt* pA, bigInt* pB) {
     bigInt A = *pA;
     bigInt B = *pB;
-    int i = threadIdx.x/B.len;
-    int j = threadIdx.x%B.len;
+    int i = blockIdx.x;
+    int j = threadIdx.x;
     // cs.opensource.google/go/go/+/master:src/math/bits/bits.go
     // lo and hi multiplication for 64 bits
     uint64 x = A.data[i];
@@ -79,7 +80,7 @@ void mul(bigInt* pDst, bigInt* pA, bigInt* pB) {
     cudaHostGetDevicePointer(&dev_pB, pB, 0);
     cudaHostGetDevicePointer(&(*dev_pB).dev_data, B.data, 0);
 
-    kernal_create_table<<<1,A.len*B.len>>>(dev_M, dev_pA, dev_pB);
+    kernal_create_table<<<A.len,B.len>>>(dev_M, dev_pA, dev_pB);
     cudaDeviceSynchronize();
 
     // Sum Matrix
@@ -132,7 +133,12 @@ void test(bigInt* pA, bigInt* pB, bigInt* pDst_expected) {
     bigInt dst_expected = *pDst_expected;
     bigInt* pDst;
     cudaHostAlloc(&pDst, sizeof(bigInt), cudaHostAllocMapped);
+    clock_t start = clock(), diff;
     mul(pDst, pA, pB);
+    diff = clock() - start;
+
+    int msec = diff*1000/CLOCKS_PER_SEC;
+    printf("%d\n", msec);
     bigInt dst = *pDst;
     if (VERBOSE) {
         show(A.data, A.len);
@@ -159,7 +165,7 @@ int main() {
         }
         cudaSetDeviceFlags(cudaDeviceMapHost);
     }
-    int fp = open("../testdata/small/numbers", O_RDONLY);
+    int fp = open("../testdata/dynamic/testcases", O_RDONLY);
     int n;
     for (;;) {
         bigInt* nums[3];
