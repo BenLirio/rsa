@@ -16,7 +16,6 @@ func rev(bs []byte) []byte {
     return bs
 }
 
-
 func write(key string, val *big.Int) {
     fp, err := os.Create(key)
     if err != nil { panic(err) }
@@ -49,5 +48,9 @@ func main() {
     write("D", D)
     if Mp.Cmp(M) != 0 {
         fmt.Println("Failed")
+    }
+    for i := 2; i < 9; i++ {
+        M.Mul(M, M)
+        write(fmt.Sprintf("M_%d", i), M)
     }
 }
