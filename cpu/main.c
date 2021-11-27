@@ -1,4 +1,5 @@
 #include <fcntl.h>
+#include <time.h>
 #include <assert.h>
 #include <unistd.h>
 #include <stdbool.h>
@@ -22,11 +23,26 @@ uint64 mul_lo(uint64 A, uint64 B) {
 }
 
 uint64 mul_hi(uint64 A, uint64 B) {
+    /*
     __asm__(
             "umulh x0, x0, x1"
    );
     register uint64 res asm("x0");
     return res;
+    */
+    uint64 x = A;
+    uint64 y = B;
+    uint64 x0 = (x<<32)>>32;
+    uint64 x1 = x>>32;
+    uint64 y0 = (y<<32)>>32;
+    uint64 y1 = y>>32;
+    uint64 w0 = x0*y0;
+    uint64 t = x1*y0 + (w0>>32);
+    uint64 w1 = (t<<32)>>32;
+    uint64 w2 = t>>32;
+    w1 += x0*y1;
+    uint64 hi = x1*y1 + w2 + (w1>>32);
+    return hi;
 }
 
 bool has_carry(uint64 A, uint64 B) {
@@ -88,7 +104,20 @@ void test(bigInt nums[]) {
     bigInt B = nums[1];
     bigInt dst_expected = nums[2];
     bigInt dst;
+
+    /* BEGIN TIME */
+    
+    clock_t start = clock(), diff;
+
     mul(&dst, nums[0], nums[1]);
+
+    diff = clock() - start;
+
+    int msec = diff*1000/CLOCKS_PER_SEC;
+    printf("%d\n", msec);
+
+
+    /* END TIME */
     if (VERBOSE) {
         for (int i = 0; i < 3; i++) {
             show(nums[i].data, nums[i].len);
@@ -107,7 +136,7 @@ void test(bigInt nums[]) {
 }
 
 int main() {
-    int fp = open("../testdata/small/numbers", O_RDONLY);
+    int fp = open("../testdata/dynamic/testcases", O_RDONLY);
     int n;
     for (;;) {
         bigInt nums[3];

@@ -35,8 +35,8 @@ bool has_carry(uint64 A, uint64 B) {
 }
 
 __global__ void kernal_create_table(uint64* M, uint64* A_data, uint64* B_data, int A_len, int B_len) {
-    int i = threadIdx.x/B_len;
-    int j = threadIdx.x%B_len;
+    int i = blockIdx.x;
+    int j = threadIdx.x;
     // cs.opensource.google/go/go/+/master:src/math/bits/bits.go
     // lo and hi multiplication for 64 bits
     uint64 x = A_data[i];
@@ -71,8 +71,10 @@ void mul(bigInt* pDst, bigInt A, bigInt B) {
     uint64 *dev_B_data;
     cudaMalloc(&dev_B_data, B.len*sizeof(uint64));
     cudaMemcpy(dev_B_data, B.data, B.len*sizeof(uint64), cudaMemcpyHostToDevice);
-    kernal_create_table<<<1,A.len*B.len>>>(dev_M, dev_A_data, dev_B_data, A.len, B.len);
 
+    kernal_create_table<<<A.len,B.len>>>(dev_M, dev_A_data, dev_B_data, A.len, B.len);
+
+    cudaDeviceSynchronize();
     cudaMemcpy(M, dev_M, bytes, cudaMemcpyDeviceToHost);
 
 
@@ -120,8 +122,15 @@ void test(bigInt nums[]) {
     bigInt A = nums[0];
     bigInt B = nums[1];
     bigInt dst_expected = nums[2];
+
+    clock_t start = clock(), diff;
     bigInt dst;
     mul(&dst, A, B);
+    diff = clock() - start;
+    int msec = diff*1000/CLOCKS_PER_SEC;
+    printf("%d\n", msec);
+
+
     if (VERBOSE) {
         for (int i = 0; i < 3; i++) {
             show(nums[i].data, nums[i].len);
@@ -140,7 +149,7 @@ void test(bigInt nums[]) {
 }
 
 int main() {
-    int fp = open("../testdata/small/numbers", O_RDONLY);
+    int fp = open("../testdata/dynamic/testcases", O_RDONLY);
     int n;
     for (;;) {
         bigInt nums[3];
