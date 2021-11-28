@@ -68,11 +68,13 @@ void Mul(bigInt dst, bigInt a, bigInt b) {
 void MulMod(bigInt dst, bigInt a, bigInt b, bigInt m) {
     bigInt tmp = calloc(1, 2*(2048>>3));
     Mul(tmp, a, b);
+    /*
     bigInt b_m = calloc(1, 2*(2048>>3));
     for (int i = 0; i < (2048>>6); i++) {
         b_m[i] = m[i];
     }
-    Mod(tmp, tmp, b_m);
+    */
+    Rem(tmp, tmp, m);
     for (int i = 0; i < (2048>>6); i++) {
         dst[i] = tmp[i];
     }
